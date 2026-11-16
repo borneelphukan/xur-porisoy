@@ -21,6 +21,35 @@ XurPorisoy is a free desktop app for organizing songs and editing the informatio
 4. Select a song to view or edit its information.
 5. Select **Save** to write your changes to the audio file.
 
+## Run it in a browser (Docker)
+
+No installation needed: a Docker image runs XurPorisoy in a container and
+streams it to your browser through noVNC. This also works on computers that
+have no desktop build available.
+
+1. Install Docker (Docker Desktop works on Windows, macOS, and Linux).
+2. From the project folder, start the app pointed at your music:
+
+   ```bash
+   XUR_MUSIC_DIR=~/Music docker compose up --build -d
+   ```
+
+3. Open **http://localhost:6080/vnc.html?autoconnect=1&resize=scale** in your
+   browser — the app window appears in the tab.
+4. Use **Add Songs** or **Add Folder** and pick files from `/home/xur/Music`,
+   the folder you mounted in step 2.
+5. When you close the app window, the container stops. Otherwise finish with
+   `docker compose down`.
+
+Things to know:
+
+- Changes are written straight into your real audio files, exactly like the
+  desktop app — save carefully.
+- Your settings (including the AI API key) are kept in a Docker volume and
+  survive restarts; run `docker compose down -v` to forget them.
+- The browser page is only reachable from your own machine by default. Set
+  `VNC_PASSWORD` before starting if you expose the port further.
+
 ## Everyday use
 
 | To… | Do this |
@@ -52,6 +81,7 @@ XurPorisoy can read and write metadata in MP3, FLAC, OGG, M4A/MP4, WAV, AIFF, an
 
 - **AI suggestions are unavailable:** Add an API key and model in **AI → LLM Settings**, and make sure the song has a title and artist.
 - **Changes are not showing in another music app:** Confirm that you selected **Save**. Some players may need to refresh their library or reopen the file.
+- **The browser page won't connect (Docker):** Check `docker compose ps` and `docker compose logs`; the container needs a few seconds to start, and port 6080 must be free on your machine.
 - **A file or field does not behave as expected:** Metadata support varies by format. [Report a problem](https://github.com/borneelphukan/xur-porisoy/issues) and include the file format and what you were trying to do.
 
 ## About the project
@@ -61,3 +91,5 @@ XurPorisoy is free and open source under the [MIT License](LICENSE). You can [br
 ### For developers
 
 To build and run the app locally, install [Rust](https://www.rust-lang.org/tools/install), then run `cargo run` from the project directory. Linux builds may also require system development libraries.
+
+To work on the container image instead: `Dockerfile` builds the app (Rust toolchain pinned to 1.98.1) and `docker/entrypoint.sh` runs Xvfb, x11vnc, noVNC, and an in-container file-dialog portal; `docker-compose.yml` ties them together and publishes only `127.0.0.1:6080`. The CI `docker` job builds the image and smoke-tests the noVNC endpoint.

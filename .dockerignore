@@ -1,0 +1,17 @@
+# Build artifacts and local state — never sent into the build context.
+target/
+dist/
+*.log
+.git/
+.gitignore
+
+# Not needed to compile the binary (packaging scripts, docs, CI).
+context/
+packaging/
+installer/
+.github/
+.cargo/
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

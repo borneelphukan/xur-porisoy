@@ -8,6 +8,10 @@ xur-porisoy/
 ├── Cargo.lock            # committed; CI/release builds use --locked
 ├── build.rs              # embeds assets/icon.ico + version info on Windows only
 ├── README.md             # user-facing docs (occasionally stale)
+├── Dockerfile            # multi-stage: rust:1.98.1 builder, runtime with Xvfb/noVNC
+├── docker-compose.yml    # the intended Docker entry point; publishes 127.0.0.1:6080
+├── docker/
+│   └── entrypoint.sh     # starts Xvfb, dbus, portal, x11vnc, websockify, then the app
 ├── assets/
 │   ├── icon.png          # window icon, Linux icon, macOS icon source
 │   ├── icon.ico          # Windows executable icon
@@ -66,6 +70,7 @@ xur-porisoy/
 | Add a menu item | `ui/mod.rs` menu bar. |
 | Add a new top-level view | `View` in `ui/state.rs`, dispatch in `ui/mod.rs`, new module in `ui/mod.rs`. |
 | Change release packaging | `.github/workflows/release.yml` plus the relevant `packaging/**` script. |
+| Change the Docker image or noVNC stack | `Dockerfile`, `docker/entrypoint.sh`, `docker-compose.yml`, and the `docker` job in `.github/workflows/ci.yml`. |
 
 ## Module dependency direction
 

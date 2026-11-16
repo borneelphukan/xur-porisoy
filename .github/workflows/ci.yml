@@ -10,6 +10,9 @@ on:
       - "build.rs"
       - "assets/**"
       - "packaging/**"
+      - "Dockerfile"
+      - "docker/**"
+      - "docker-compose.yml"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
@@ -19,6 +22,9 @@ on:
       - "build.rs"
       - "assets/**"
       - "packaging/**"
+      - "Dockerfile"
+      - "docker/**"
+      - "docker-compose.yml"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
@@ -108,3 +114,58 @@ jobs:
           sh -n packaging/debian/postrm
           sh -n packaging/apt/install.sh
           python3 -m py_compile packaging/apt/build-repo.py
+          sh -n docker/entrypoint.sh
+
+  docker:
+    name: Docker image builds and serves noVNC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # The image compiles Rust inside the build (it is the only packaging
+      # target that does), so this is a full release build on top of the
+      # `check` job. The gha layer cache only helps when src/** is unchanged.
+      - name: Validate compose file
+        run: docker compose --file docker-compose.yml config --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: xur-porisoy:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Boots the real stack headless: Xvfb -> x11vnc -> websockify. If the
+      # binary were missing a dlopened GUI library, it would die within
+      # seconds and the `docker top` check would fail.
+      - name: Smoke test the noVNC stack
+        run: |
+          docker run -d --name xur-docker-smoke -p 127.0.0.1:6080:6080 xur-porisoy:ci
+          ok=""
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:6080/vnc.html >/dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          if [ -z "$ok" ]; then
+            echo "noVNC never answered on 6080" >&2
+            docker logs xur-docker-smoke
+            docker rm -f xur-docker-smoke
+            exit 1
+          fi
+          # Give the app a moment to hit its startup panics (bad HOME,
+          # missing dlopen library) before declaring success.
+          sleep 10
+          if ! docker top xur-docker-smoke | grep -q xur-porisoy; then
+            echo "xur-porisoy process is not running" >&2
+            docker logs xur-docker-smoke
+            docker rm -f xur-docker-smoke
+            exit 1
+          fi
+          docker rm -f xur-docker-smoke
+
+      # The image is intentionally NOT pushed to a registry yet; pushing to
+      # GHCR needs `packages: write` and a tag/push step gated on main.

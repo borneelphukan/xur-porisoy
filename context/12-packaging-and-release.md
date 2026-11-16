@@ -16,6 +16,7 @@ Every packaging script packages an **already-built** binary. None of them invoke
 | Windows portable | `x64`, `x86`, `arm64` | built inline in the workflow | `XurPorisoy-<version>-windows-<arch>.zip` |
 | macOS | universal (`x86_64` + `arm64`) | `packaging/macos/build-dmg.sh` | `XurPorisoy-<version>-macos-universal.dmg` |
 | apt repository | `amd64` (published) | `packaging/apt/build-repo.py` | static tree under `pages/` |
+| Docker image | runner arch (`docker buildx` can cross-build on demand) | `Dockerfile` + `docker/entrypoint.sh` + `docker-compose.yml` | OCI image; **not** a release artifact or registry push |
 
 `<version>` is the first `version =` line in `Cargo.toml`, currently `0.0.1`. Windows also receives a four-field numeric version `X.Y.Z.0`.
 
@@ -207,6 +208,7 @@ Renaming an output file without updating the expected-pattern list makes the rel
 | AppImage downloads `appimagetool` at build time | Build depends on GitHub's continuous release. |
 | "34+ fields" in RPM/README | Only 18 fields are editable. |
 | `REPO_BASE` hard-coded | Forks must edit the Python and shell defaults. |
+| Docker image is built but never pushed | No registry to pull from; Docker users build from source with `docker compose up --build`. CI smoke-tests the image only (see [11-ci-cd.md](11-ci-cd.md)). |
 
 ## 14. Manual packaging quickstart
 
@@ -225,3 +227,18 @@ python3 packaging/apt/build-repo.py --debs dist --out pages \
 ```
 
 All scripts accept `BINARY` and `OUT_DIR` overrides.
+
+## 15. Docker image
+
+The Dockerfile is the one packaging target that **compiles Rust itself** —
+every `packaging/**` script still expects a prebuilt binary. The builder
+stage pins `rust:1.98.1-slim-bookworm` and runs `cargo build --release
+--locked`; the runtime stage adds the dlopened GUI stack plus a headless
+display (Xvfb → x11vnc → noVNC on port 6080) and an in-container XDG portal
+so `rfd` file dialogs work in the streamed window. `docker-compose.yml` is
+the intended entry point and publishes only `127.0.0.1:6080`.
+
+No release job or `expected` pattern involves the image; it is validated by
+the `docker` job in `ci.yml` alone. See
+[10-build-run-and-config.md](10-build-run-and-config.md) §11 for runtime
+variables and volumes.

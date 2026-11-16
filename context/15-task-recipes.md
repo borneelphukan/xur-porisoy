@@ -321,3 +321,29 @@ python3 -m http.server 8000 --directory /tmp/xur-pages
 ```
 
 Then exercise the UI: add two files, switch list/grid, edit and save, clear a field and save, load/remove artwork, configure a local LLM, Fill Data, and discard changes.
+
+---
+
+## 19. Change the Docker image or the noVNC stack
+
+**Goal:** move the pinned Rust toolchain, add a runtime library, or change how the browser stream is set up.
+
+| Step | File | Change |
+|---|---|---|
+| 1 | `Dockerfile` | Builder: keep `rust:<pin>-slim-bookworm` and the apt list **equal to the `check` job in `ci.yml`**. Runtime: GUI libs must mirror the `Depends` line of `packaging/debian/build-deb.sh` (dlopened — `ldd` will not warn you). |
+| 2 | `docker/entrypoint.sh` | Display stack order matters: Xvfb → wait for the X socket → dbus-daemon → portal → x11vnc (`-localhost`) → websockify → the app last, with the EXIT trap killing the rest. |
+| 3 | `docker-compose.yml` | Keep port `6080` bound to `127.0.0.1`; music mount stays read-write; named volumes stay. |
+| 4 | `.github/workflows/ci.yml` | The `docker` job smoke test must still pass: `/vnc.html` answers, `docker top` shows `xur-porisoy`. |
+| 5 | Docs | README "Run it in a browser" section, [10-build-run-and-config.md](10-build-run-and-config.md) §11, [11-ci-cd.md](11-ci-cd.md) job table, [12-packaging-and-release.md](12-packaging-and-release.md) §15, [14-conventions-and-gotchas.md](14-conventions-and-gotchas.md) §11/§12. |
+
+Rust toolchain bumps touch **`ci.yml`, `release.yml`, and the `Dockerfile`** simultaneously.
+
+Local check:
+
+```bash
+sh -n docker/entrypoint.sh
+docker compose config --quiet
+docker compose up --build -d && sleep 30
+curl -fsS http://localhost:6080/vnc.html >/dev/null && docker compose ps   # healthy
+docker compose logs; docker compose down
+```

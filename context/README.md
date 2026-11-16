@@ -13,7 +13,7 @@ This directory is the **authoritative, current context** for anyone (human or AI
 | Audio metadata | `lofty` `0.25` |
 | HTTP client | `reqwest` `0.12` (rustls, no OpenSSL) |
 | Async runtime | `tokio` `1.40`, 2 worker threads |
-| Platforms | Windows, Linux (Debian/Ubuntu primary), macOS universal |
+| Platforms | Windows, Linux (Debian/Ubuntu primary), macOS universal, Docker (any OS with a browser) |
 | License | MIT (declared in `Cargo.toml`; **no `LICENSE` file is committed**) |
 | Website | none; GitHub Pages hosts the apt repository and `install.sh` |
 
@@ -35,6 +35,7 @@ This directory is the **authoritative, current context** for anyone (human or AI
 | How does LLM metadata lookup and artwork fetching work? | [08-ai-and-llm.md](08-ai-and-llm.md) |
 | How does background work and messaging work? | [09-worker-and-concurrency.md](09-worker-and-concurrency.md) |
 | How do I build, run, and configure it locally? | [10-build-run-and-config.md](10-build-run-and-config.md) |
+| How do I run it in Docker and open it from a browser (noVNC)? | [10-build-run-and-config.md](10-build-run-and-config.md) §11 |
 | How do CI, audits, and releases work? | [11-ci-cd.md](11-ci-cd.md) |
 | How are Linux/Windows/macOS packages produced? | [12-packaging-and-release.md](12-packaging-and-release.md) |
 | What is on GitHub Pages and how is it built? | [13-website.md](13-website.md) |
@@ -66,7 +67,8 @@ This directory is the **authoritative, current context** for anyone (human or AI
 - LLM client: `src/services/llm.rs`; artwork lookup: `src/services/artwork.rs`.
 - Settings persistence: `src/services/settings.rs`.
 - Release automation: `.github/workflows/{ci,audit,release}.yml` and `packaging/**`.
+- Container entry point: `docker-compose.yml` → `Dockerfile` → `docker/entrypoint.sh` (Xvfb/noVNC stream on `127.0.0.1:6080`).
 
 ## Keeping this pack accurate
 
-When behaviour changes, update the relevant file here **in the same PR**. Prefer function/module names and contracts over large code blocks; line numbers drift quickly. If `Cargo.toml`, `Cargo.lock`, `installer/xur-porisoy.iss`, `packaging/**`, or the workflows change, re-check [11-ci-cd.md](11-ci-cd.md) and [12-packaging-and-release.md](12-packaging-and-release.md).
+When behaviour changes, update the relevant file here **in the same PR**. Prefer function/module names and contracts over large code blocks; line numbers drift quickly. If `Cargo.toml`, `Cargo.lock`, `installer/xur-porisoy.iss`, `packaging/**`, `Dockerfile`, `docker/**`, `docker-compose.yml`, or the workflows change, re-check [11-ci-cd.md](11-ci-cd.md) and [12-packaging-and-release.md](12-packaging-and-release.md).

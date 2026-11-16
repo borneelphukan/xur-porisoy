@@ -138,7 +138,9 @@ The root `README.md` is user-facing and stale in several places. `context/` is a
 - AppImage builds download `appimagetool` from GitHub's continuous release at build time.
 - The Windows job verifies `ProductName`/`FileVersion`; changing `build.rs` strings or the numeric version derivation breaks it.
 - `metadata` reads the **first** `version =` line in `Cargo.toml`. Adding another `version =` line above `[package]` would break it.
-- Rust is pinned to 1.98.1 in both workflows and every packaging job. Bump deliberately.
+- Rust is pinned to 1.98.1 in both workflows, the `Dockerfile` builder stage, and every packaging job. Bump deliberately in all of them.
+- The `docker` job exists only in `ci.yml`; `release.yml` neither builds nor publishes an image. Keep the Dockerfile's builder apt list equal to the `check` job's, and its runtime GUI list equal to the `Depends` in `build-deb.sh` — nothing else catches drift because the libraries are dlopened.
+- `docker-compose.yml` binds noVNC to `127.0.0.1:6080` and the image has no VNC password by default. Republishing the port without setting `VNC_PASSWORD` exposes the app (and its settings) to the LAN.
 
 ## 12. Platform traps
 
@@ -151,12 +153,14 @@ The root `README.md` is user-facing and stale in several places. `context/` is a
 | Windows | ARM64 builds use `aarch64-pc-windows-msvc`; the installer has an `arm64` architecture guard. |
 | macOS | Minimum target 11.0; universal binary must be produced with `lipo`. No code signing. |
 | Wayland | The direct `winit = "0.30"` dependency is required for dynamic loading and client-side decorations; removing it causes undecorated or non-starting windows. |
-| All | `panic = "abort"` in release means no unwinding; a panic terminates the process without a dialog. |
+| All | `panic = "abort"` in release means no unwinding; a panic terminates the process without a dialog. In Docker that also stops the container — check `docker compose logs`. |
+| Docker | The app runs on Xvfb with software GL (`LIBGL_ALWAYS_SOFTWARE=1`, llvmpipe). File dialogs need the in-container dbus + `xdg-desktop-portal(-gtk)` stack from `docker/entrypoint.sh`; without a session bus/portal, Add Songs/Add Folder fail silently while everything else works. |
+| Docker | Bind-mounted music folders must be writable by the container user (UID 1000); on hosts with different UIDs, saves fail. Named config/data volumes are pre-created in the image so Docker initializes their ownership correctly. |
 
 ## 13. Documentation-pack rules
 
 - Prefer **function/module names** over line numbers; line numbers drift.
 - When behaviour changes, update the relevant `context/` file in the same PR.
-- If `Cargo.toml`, `Cargo.lock`, `installer/**`, `packaging/**`, or the workflows change, re-check [11-ci-cd.md](11-ci-cd.md) and [12-packaging-and-release.md](12-packaging-and-release.md).
+- If `Cargo.toml`, `Cargo.lock`, `installer/**`, `packaging/**`, `Dockerfile`, `docker/**`, `docker-compose.yml`, or the workflows change, re-check [11-ci-cd.md](11-ci-cd.md) and [12-packaging-and-release.md](12-packaging-and-release.md), and the Docker section of [10-build-run-and-config.md](10-build-run-and-config.md).
 - If a field is added/removed, update [04-data-model.md](04-data-model.md), [05-metadata-pipeline.md](05-metadata-pipeline.md), and [08-ai-and-llm.md](08-ai-and-llm.md).
 - State the verified commit/version in [README.md](README.md) when you refresh the pack.

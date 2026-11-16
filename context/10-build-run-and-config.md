@@ -111,6 +111,17 @@ cargo clippy --workspace --all-targets -- \
 cargo build --release --locked
 ```
 
+### Docker (noVNC)
+
+```bash
+docker compose up --build -d                          # then open the browser URL
+XUR_MUSIC_DIR=~/Music docker compose up --build -d    # mount a real music folder
+docker compose logs -f
+docker compose down                                   # add -v to wipe settings
+```
+
+See section 11 for the full picture.
+
 The two clippy allows are pre-existing findings in `services/metadata.rs` and `ui/state.rs`; CI treats all other warnings as errors.
 
 ### Faster local iteration
@@ -222,3 +233,72 @@ python3 -m py_compile packaging/apt/build-repo.py
 ```
 
 There is no `.cargo/config.toml`; linker settings and target flags are not configured in-repo.
+
+## 11. Docker (noVNC)
+
+The container is self-contained: it does **not** need a host X11/Wayland
+display. `docker/entrypoint.sh` runs the app on an in-container X server and
+streams it to a browser:
+
+```text
+xur-porisoy (glow/X11)
+  -> Xvfb :99 (software GL, LIBGL_ALWAYS_SOFTWARE=1 / llvmpipe)
+  -> x11vnc localhost:5900 (never published out of the container)
+  -> websockify 0.0.0.0:6080 serving /usr/share/novnc
+```
+
+Intended use:
+
+```bash
+XUR_MUSIC_DIR=~/Music docker compose up --build -d
+open http://localhost:6080/vnc.html?autoconnect=1&resize=scale
+```
+
+### Image layout
+
+- Builder stage `rust:1.98.1-slim-bookworm` runs the **exact CI build package
+  list** and `cargo build --release --locked`. This is the only packaging
+  target that compiles Rust; the `packaging/**` scripts still expect a
+  prebuilt binary.
+- Runtime stage is `debian:bookworm-slim` with two package groups: the
+  dlopened GUI stack (mirrors the `Depends` line of
+  `packaging/debian/build-deb.sh` — remember `ldd` cannot verify these) and
+  the display stack (`xvfb x11vnc novnc websockify dbus-x11
+  xdg-desktop-portal xdg-desktop-portal-gtk fonts-dejavu-core libglx-mesa0`).
+- Runs as user `xur` with `HOME=/home/xur` exported by the entrypoint. The
+  app panics at startup if `ProjectDirs` cannot resolve
+  `~/.config/xur-porisoy`, so HOME is not optional.
+
+### Runtime knobs
+
+| Variable | Default | Effect |
+|---|---|---|
+| `RESOLUTION` | `1200x800x24` | Xvfb screen; the app builds a 1200×800 viewport |
+| `VNC_PASSWORD` | unset (no auth) | x11vnc password; noVNC prompts for it |
+| `NOVNC_PORT` / `VNC_PORT` | `6080` / `5900` | listen ports inside the container |
+| `XUR_MUSIC_DIR` | `./music` | compose-only; host folder mounted at `/home/xur/Music` |
+
+### Data
+
+| Path | Contents | How compose persists it |
+|---|---|---|
+| `/home/xur/.config/xur-porisoy` | `settings.json` (plaintext API key) | named volume `xur-porisoy-config` |
+| `/home/xur/.local/share/xur-porisoy` | eframe persisted window geometry | named volume `xur-porisoy-data` |
+| `/home/xur/Music` | the library | bind mount, **read-write** (saves rewrite tags in place) |
+
+### File dialogs
+
+`rfd` is built with the `xdg-portal` feature only, so the picker needs
+`org.freedesktop.portal.Desktop` on a session bus. The entrypoint starts a
+private `dbus-daemon` plus `xdg-desktop-portal`/`xdg-desktop-portal-gtk`
+inside the container; the GTK chooser window appears on `:99` and is visible
+through noVNC. Without that stack, Add Songs/Add Folder silently fail while
+the rest of the app works.
+
+### CI
+
+The `docker` job in `ci.yml` builds the image (`docker/build-push-action`
+with gha layer cache) and smoke-tests it: boots the container, waits for
+`http://127.0.0.1:6080/vnc.html`, then asserts the `xur-porisoy` process is
+alive in `docker top` (catches missing dlopened libraries and startup
+panics). The image is **not** pushed to a registry.

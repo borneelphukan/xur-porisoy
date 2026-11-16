@@ -1,0 +1,36 @@
+# xur-porisoy in Docker with noVNC.
+#
+#   docker compose up --build -d
+#   open http://localhost:6080/vnc.html?autoconnect=1&resize=scale
+#
+# 6080 is bound to 127.0.0.1 on purpose: the app is streamed to your machine
+# only. Set VNC_PASSWORD before `up` if you republish the port elsewhere.
+#
+# Your music is mounted from the host at /home/xur/Music. The app WRITES tags
+# into those files in place, so the mount is read-write and point it at a
+# folder you actually want edited:
+#
+#   XUR_MUSIC_DIR=~/Music docker compose up --build -d
+
+name: xur-porisoy
+
+services:
+  xur-porisoy:
+    build:
+      context: .
+    image: xur-porisoy:local
+    restart: "no"          # the app exits when you close its window
+    init: true             # reap the Xvfb/portal/vnc child processes
+    ports:
+      - "127.0.0.1:6080:6080"
+    environment:
+      RESOLUTION: "1200x800x24"
+      # VNC_PASSWORD: "change-me"
+    volumes:
+      - xur-porisoy-config:/home/xur/.config/xur-porisoy
+      - xur-porisoy-data:/home/xur/.local/share/xur-porisoy
+      - ${XUR_MUSIC_DIR:-./music}:/home/xur/Music
+
+volumes:
+  xur-porisoy-config:
+  xur-porisoy-data:

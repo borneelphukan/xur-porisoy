@@ -6,7 +6,7 @@ Three workflows live in `.github/workflows/`. All use the pinned Rust **1.98.1**
 
 Triggers:
 
-- `push` to `main`, path-filtered on `src/**`, `Cargo.toml`, `Cargo.lock`, `build.rs`, `assets/**`, `packaging/**`, `ci.yml`.
+- `push` to `main`, path-filtered on `src/**`, `Cargo.toml`, `Cargo.lock`, `build.rs`, `assets/**`, `packaging/**`, `Dockerfile`, `docker/**`, `docker-compose.yml`, `ci.yml`.
 - `pull_request`, same paths.
 - `workflow_dispatch`.
 
@@ -26,7 +26,25 @@ The two clippy allows cover pre-existing findings. No release build is performed
 
 - `desktop-file-validate packaging/debian/xur-porisoy.desktop`
 - `appstreamcli validate --no-net packaging/debian/xur-porisoy.metainfo.xml`
-- `bash -n build-deb.sh`; `sh -n` on `postinst`, `prerm`, `postrm`, `install.sh`; `python3 -m py_compile packaging/apt/build-repo.py`
+- `bash -n build-deb.sh`; `sh -n` on `postinst`, `prerm`, `postrm`, `install.sh`, `docker/entrypoint.sh`; `python3 -m py_compile packaging/apt/build-repo.py`
+
+### Job `docker` (ubuntu-24.04, 60 min)
+
+- `docker compose config --quiet` validates `docker-compose.yml`.
+- `docker/build-push-action@v6` builds the image with gha layer caching
+  (`cache-from/cache-to: type=gha,mode=max`). The cache only helps when
+  `src/**` is unchanged — any source edit re-runs the full release compile
+  inside the image, because this is the only target that compiles Rust in a
+  Dockerfile.
+- Smoke test: `docker run` the image, poll `http://127.0.0.1:6080/vnc.html`
+  for up to 2 minutes, then require the `xur-porisoy` process in `docker top`.
+  This catches missing dlopened GUI libraries (the failure mode `ldd` cannot
+  see) and startup panics such as an unresolvable HOME/config dir.
+- The image is **not** pushed to any registry. Wiring GHCR push needs a
+  `packages: write` permission and a main-only push step; nothing in CI
+  depends on that today.
+- This job is **only in `ci.yml`**. `release.yml` does not build or publish
+  the image, so release tags do not produce a container artifact.
 
 ### Path-filter gotchas
 
@@ -161,7 +179,7 @@ All are optional: without them the apt repository is unsigned.
 
 | Tool | Version | Where |
 |---|---|---|
-| Rust | `1.98.1` | `ci.yml`, `release.yml`, every packaging job |
+| Rust | `1.98.1` | `ci.yml`, `release.yml`, `Dockerfile` (`rust:1.98.1-slim-bookworm`), every packaging job |
 | actions/checkout | `v4` | all workflows |
 | rust-cache | `v2` | all |
 | upload/download-artifact | `v4` | release |
@@ -170,7 +188,7 @@ All are optional: without them the apt repository is unsigned.
 | deploy-pages | `v4` | release |
 | Inno Setup | whatever Chocolatey installs | Windows job |
 
-Bump Rust deliberately in **both** workflows; a new stable can introduce lints that fail an old tag build.
+Bump Rust deliberately in **both workflows and the Dockerfile**; a new stable can introduce lints that fail an old tag build.
 
 ## 6. Local equivalents
 
@@ -185,3 +203,5 @@ There is no `Makefile` or `justfile`. Use the `cargo` commands in [10-build-run-
 - `publish-pages` depends on `ci`; if `ci` fails, Pages is not updated even if the `.deb` built.
 - The Pages deploy only includes the amd64 `.deb` (see above).
 - `actions/configure-pages` with `enablement: true` can still fail under restrictive org policy; enable Pages manually if so.
+- The `docker` job lives only in `ci.yml`; `release.yml` neither builds nor publishes an image. A broken Dockerfile therefore blocks PRs but never a tag — the image has no release artifact and no registry push.
+- `Dockerfile` must keep the builder's apt package list identical to the `check` job's, and the runtime's GUI-library list identical to the `Depends` in `packaging/debian/build-deb.sh` (both stacks are dlopened, so nothing else catches a drift).
