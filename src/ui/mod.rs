@@ -154,6 +154,12 @@ impl XurPorisoyApp {
             return;
         };
 
+        // Connection-test and LLM settings outcomes are shown inline in the
+        // AI Settings popup; they never open this window, success or failure.
+        if crate::ui::settings_view::is_inline_settings_message(&error) {
+            return;
+        }
+
         let mut dismiss = false;
         egui::Window::new("Error")
             .collapsible(false)
@@ -178,12 +184,23 @@ impl XurPorisoyApp {
             AppMessage::MetadataFetched(idx, result) => {
                 self.state.complete_metadata_fetch(idx, result);
             }
-            AppMessage::LlmTestResult(result) => match result {
-                Ok(_) => self.state.error_message = Some("Connection test successful!".to_string()),
-                Err(error) => {
-                    self.state.error_message = Some(format!("Connection test failed: {error}"))
+            AppMessage::LlmTestResult(result) => {
+                // The outcome is only shown inline in the AI Settings popup.
+                // If the user closed it mid-test, drop the result instead of
+                // parking a message the Error window will never surface.
+                if self.show_ai_settings {
+                    match result {
+                        Ok(_) => {
+                            self.state.error_message =
+                                Some("Connection test successful!".to_string())
+                        }
+                        Err(error) => {
+                            self.state.error_message =
+                                Some(format!("Connection test failed: {error}"))
+                        }
+                    }
                 }
-            },
+            }
         }
     }
 }
@@ -207,13 +224,16 @@ impl eframe::App for XurPorisoyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Add Songs").clicked() {
                         if let Some(paths) = rfd::FileDialog::new()
-                            .add_filter(
-                                "Audio Files",
-                                &["mp3", "flac", "ogg", "m4a", "wav", "aiff", "ape"],
-                            )
+                            .add_filter("Audio Files", state::AUDIO_EXTENSIONS)
                             .pick_files()
                         {
                             self.state.add_songs(paths);
+                        }
+                        ui.close_menu();
+                    }
+                    if ui.button("Add Folder").clicked() {
+                        if let Some(folder) = rfd::FileDialog::new().pick_folder() {
+                            self.state.add_folder(folder);
                         }
                         ui.close_menu();
                     }
@@ -271,12 +291,6 @@ impl eframe::App for XurPorisoyApp {
                     if ui.button("About").clicked() {
                         self.show_about = true;
                         ui.close_menu();
-                    }
-                });
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if matches!(&self.state.current_view, View::Grid) {
-                        ui.label("📚 Library");
                     }
                 });
             });

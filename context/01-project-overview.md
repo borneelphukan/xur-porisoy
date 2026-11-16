@@ -18,7 +18,7 @@ The name is a transliteration; the crate, binary, package, and config directory 
 
 | Capability | Summary | Main implementation |
 |---|---|---|
-| Add songs | Multi-select files through `rfd`; tags are parsed off the UI thread | `ui/state.rs::AppState::add_songs`, `ui/grid_view.rs`, `ui/mod.rs` |
+| Add songs | Multi-select files or pick a folder through `rfd`; tags are parsed off the UI thread | `ui/state.rs::AppState::add_songs`/`add_folder`, `ui/mod.rs` |
 | Library list | Virtualised table: `#`, title, artist, album, year, genre, track | `ui/grid_view.rs::show_list` |
 | Library grid | Responsive cover-art tiles with a music-note placeholder | `ui/grid_view.rs::show_grid` |
 | Detail editor | 18 tag fields plus a multiline lyrics editor, 65/35 split with artwork | `ui/detail_view.rs` |

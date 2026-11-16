@@ -284,7 +284,7 @@ The `release` job fails if a listed pattern is missing; extra files are fine.
 | Fill Data stays disabled and says "Fetching…" | A spawned task panicked without sending `MetadataFetched`, or the Tokio handle was never set. Restart. |
 | Fill Data disabled with no hint | `settings.llm.is_configured()` is false: check `enabled`, `model_name`, and key/localhost base URL. |
 | Fetch fails immediately | Check endpoint (`/v1` suffix), key, model name, and the response body in the error window. |
-| Settings dialog shows no error | The inline filter only matches `Connection`/`connection`/`LLM`; dismiss the Error window behind it. |
+| Settings dialog shows no error | Only `Connection`/`connection`/`LLM` messages display inline (and never in the Error window); other settings errors open the Error window. |
 | Artwork missing after Fill Data | iTunes lookup failed silently; check network and the title/artist/album term. |
 | Save fails "No writable tag found" | The file has no tag; the app will not create one. |
 

@@ -9,7 +9,7 @@ The UI is pure `egui` immediate mode. There is no retained widget tree, no CSS, 
 ```text
 sync theme (if settings.theme changed)
 drain all queued AppMessage values
-TopBottomPanel::top("menu_bar")        File | AI | View | Help, right-aligned "📚 Library"
+TopBottomPanel::top("menu_bar")        File | AI | View | Help
 match current_view {
     Grid   => GridView::show(ctx, &mut state)
     Detail => DetailView::show(ctx, &mut state)
@@ -26,30 +26,31 @@ Dialogs are checked after the main content so they float above it. egui handles 
 
 | Menu | Item | Behaviour |
 |---|---|---|
-| File | Add Songs | `rfd::FileDialog` multi-select, filter `mp3 flac ogg m4a wav aiff ape` → `state.add_songs`. |
+| File | Add Songs | `rfd::FileDialog` multi-select, filter from `state::AUDIO_EXTENSIONS` (`mp3 flac ogg m4a wav aiff ape`) → `state.add_songs`. |
+| File | Add Folder | `rfd::FileDialog::pick_folder` → `state.add_folder`, recursively scans the folder for `AUDIO_EXTENSIONS` files and adds them. |
 | File | Quit | `ViewportCommand::Close`. |
 | AI | LLM Settings | Re-clones `settings.llm` into `ai_settings_draft`, derives local mode from the base URL, opens the popup. |
 | View | Theme → Default / Dark / Light | `selectable_value` on `settings.theme`, saves immediately. The submenu is widened to 150 px. |
 | Help | About | Opens the About window. |
 
-The right side of the bar shows `📚 Library` only in `View::Grid`.
+The bar has no right-aligned content.
 
 ## 3. Library view (`ui/grid_view.rs`)
 
 ### Toolbar
 
-- `➕ Add Songs` (same dialog as the menu).
-- `🗑 Clear All` — `songs.clear()` and `pending_changes = true`. It does **not** reset `is_fetching`, `fetch_index`, selection, or texture caches.
-- `View:` label plus `📋 List` / `🔲 Grid` `selectable_label`s; changes `library_view_mode` for the session only.
-- Right-aligned count: `"N songs"` or `"N songs · loading M songs…"`.
+- Left-aligned count: `"N songs"` or `"N songs · loading M…"`.
+- Search box (280 px) in the right-hand group: bound to `state.song_search` with hint `"Search song, Artist, Album, Year, Genre"`; filters the library live on every keystroke (no Enter).
+- `🗑 Clear All` — `songs.clear()` and `pending_changes = true`, at the far right. It does **not** reset `is_fetching`, `fetch_index`, selection, or texture caches.
+- `📋 List` / `🔲 Grid` `selectable_label`s, second from the right (no "View:" label); changes `library_view_mode` for the session only.
 
 ### Empty state
 
-When `songs.is_empty()`: "Reading tags…" if `loading_count > 0`, otherwise "No songs added yet." / "Click 'Add Songs' to get started." The function returns early, so no table/grid is built.
+When `songs.is_empty()`: "Reading tags…" if `loading_count > 0`, otherwise "No songs added yet." / "Add songs from the File menu to get started." The function returns early, so no table/grid is built.
 
 ### List mode
 
-`egui_extras::TableBuilder` with seven auto columns:
+`egui_extras::TableBuilder` (id_salt `song_table`) with seven auto columns, `resizable(true)`: drag any column border and the width is stored in egui memory, surviving view switches and frames.
 
 | Column | Minimum width | Content |
 |---|---|---|
@@ -61,13 +62,14 @@ When `songs.is_empty()`: "Reading tags…" if `loading_count > 0`, otherwise "No
 | Genre | 100 | `metadata.genre` |
 | Track | 80 | `"—"`, `track`, or `track/total` |
 
-`body.rows(28.0, songs.len(), ...)` virtualises rows, so only visible rows allocate widgets. Clicking **any cell** opens the song: each cell draws its label and then calls `track_list_row_click`, which allocates a click-sensing rect with id `("song_list_cell", song_index, column_index)`.
+`body.rows(28.0, visible.len(), ...)` virtualises rows, so only visible rows allocate widgets; `visible` (from `GridView::visible_indices`) holds the real song indices that match `state.song_search`, checked case-insensitively against title (or file name when untitled), artist, album, year, and genre. The `#` column and clicks use the real index, so filtering never renumbers songs or breaks navigation. Clicking **any cell** opens the song: each cell draws its label and then calls `track_list_row_click`, which allocates a click-sensing rect with id `("song_list_cell", song_index, column_index)` and sets the `PointingHand` cursor on hover. Cell labels use `Label::selectable(false)`; otherwise egui's text-selection pass would override the hand cursor with the text cursor.
 
 ### Grid mode
 
 Constants: tile width 112, spacing 12, row height 126, cover display 72×72.
 
 - `columns = floor((available_width + 12) / (112 + 12)).max(1)`.
+- Tiles iterate `visible` (same search filter as list mode); the cover and title use the `PointingHand` hover cursor and the title label is non-selectable.
 - `ScrollArea::vertical().show_rows(...)` virtualises entire rows.
 - The grid splits borrows into `let songs = &state.songs; let textures = &mut state.album_art_textures;` so tiles never clone artwork or titles.
 - Cover: `textures.get_or_load(ctx, art, 96)` → 72×72 image; on failure or no art → a 72×72 button labelled `♫`.
@@ -126,7 +128,7 @@ Fixed 460 px wide, 100 px high (egui may grow it), non-collapsible.
 - "Custom Model Name" text field bound directly to `draft.model_name`.
 - Local mode: "Endpoint URL" defaulting to `http://localhost:1234/v1`.
 - API mode: password-masked "API Key" (`sk-...`) and "Endpoint URL" defaulting to `https://api.openai.com/v1`.
-- Inline error only if `error_message` contains `"Connection"`, `"connection"`, or `"LLM"`.
+- Inline message (green for a successful connection test, red otherwise) if `error_message` contains `"Connection"`, `"connection"`, or `"LLM"` (`settings_view::is_inline_settings_message`). These messages never open the Error window, and are cleared when the popup closes.
 - `Cancel` closes without committing.
 - `Save` is enabled when model is non-blank and (local mode or a non-blank key). It forces `enabled = true`, copies the draft into `settings.llm`, persists, and closes on success.
 - `Test connection` uses the same enablement gate. It temporarily sets `draft.enabled = true`, clones the settings, restores the previous enabled value, and spawns the test.
@@ -139,9 +141,11 @@ Centered, default 760×560, minimum 600×460, resizable. Content is static: purp
 
 ## 7. Error window
 
-A centered, non-resizable window titled "Error" whenever `error_message` is `Some`. The message is red; `OK` clears it.
+A centered, non-resizable window titled "Error" whenever `error_message` is `Some` and does not match `settings_view::is_inline_settings_message`. The message is red; `OK` clears it.
 
-There is no severity level and no queue: a new error overwrites the previous one. Success text from a connection test also goes through this window.
+Connection-test results and LLM settings messages are shown inline in the AI Settings popup instead; the Error window never opens for them, success or failure.
+
+There is no severity level and no queue: a new error overwrites the previous one.
 
 ## 8. Theme and styling
 
@@ -178,4 +182,4 @@ Detail(i) ──Save success──► Grid
 Detail(i) ──index out of range──► Grid
 ```
 
-`selected_index` is set when opening detail but is otherwise unused by the views. `library_view_mode` survives navigation but not restart.
+`selected_index` is set when opening detail but is otherwise unused by the views. `library_view_mode` and `song_search` survive navigation but not restart.

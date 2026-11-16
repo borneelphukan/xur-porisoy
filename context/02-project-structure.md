@@ -60,7 +60,7 @@ xur-porisoy/
 | Add or rename a metadata field | `SongMetadata` fields + `field_names` + `get_field`/`set_field`; then `extract_tag_data`/`write_tag_data` in `services/metadata.rs`. The detail view iterates `field_names()` automatically. |
 | Change what the LLM is asked for | `services/llm.rs::build_prompt` **and** the `SongMetadata` field list in the prompt. |
 | Change the system/user message shape | `services/llm.rs::call_llm`. |
-| Change supported file extensions | `ui/grid_view.rs` (two `add_filter` calls) and `ui/mod.rs` (File → Add Songs). |
+| Change supported file extensions | `ui/state.rs::AUDIO_EXTENSIONS` (single source; used by File → Add Songs and Add Folder). |
 | Change artwork sizing or cache limits | `ui/grid_view.rs` (96), `ui/state.rs::detail_album_art` (320), `TextureCache::new` (512/8). |
 | Change tag cleanup behaviour | `services/metadata.rs::write_tag_data`. |
 | Add a menu item | `ui/mod.rs` menu bar. |

@@ -4,9 +4,10 @@ Each section traces a user-visible feature through UI, state, services, and back
 
 ## 1. Add songs
 
-**Entry points:** File → Add Songs; `➕ Add Songs` toolbar button.
+**Entry points:** File → Add Songs; File → Add Folder. (The old `➕ Add Songs` toolbar button was removed.)
 
-1. `rfd::FileDialog::new().add_filter("Audio Files", &[...]).pick_files()` returns `Option<Vec<PathBuf>>`.
+1. **Add Songs:** `rfd::FileDialog::new().add_filter("Audio Files", state::AUDIO_EXTENSIONS).pick_files()` returns `Option<Vec<PathBuf>>`.
+   **Add Folder:** `rfd::FileDialog::new().pick_folder()` returns `Option<PathBuf>`; `AppState::add_folder` walks it recursively (`std::fs::read_dir`, skipping unreadable directories), collects files with an `AUDIO_EXTENSIONS` extension, sorts them, and shows an error banner if none are found.
 2. `AppState::add_songs(paths)` increments `loading_count` by the batch size and sets `pending_changes`.
 3. It spawns `std::thread` `library-loader`, moving the paths and a cloned `Sender<AppMessage>`.
 4. The thread loops: `MetadataService::load_song(path)` → `AppMessage::SongLoaded(result)`. It breaks if the receiver was dropped (window closed).
@@ -18,16 +19,18 @@ Properties:
 - Songs appear incrementally, in completion order (which for a single thread is input order).
 - Duplicate paths are added again; there is no dedupe.
 - One bad file produces one error banner but the rest still load. A later error overwrites an earlier one.
-- No folder picker and no recursive scan.
+- Add Folder scans recursively; the walk runs on the UI thread (cheap compared to tag parsing). Hidden/system directories are not excluded.
 - `last_opened_folder` is never updated.
 
 ## 2. Browse the library
 
-**List mode (default):** virtualised 7-column table. Row `#`, title (falls back to file name), artist, album, year, genre, track (`—`, `n`, or `n/total`). Clicking any cell opens the detail view.
+**List mode (default):** virtualised 7-column table with resizable columns (widths persisted in egui memory). Row `#`, title (falls back to file name), artist, album, year, genre, track (`—`, `n`, or `n/total`). Clicking any cell opens the detail view.
 
 **Grid mode:** responsive cover tiles, 112 px wide, 72 px art. Art is decoded lazily on the UI thread and cached. A missing or corrupt cover shows a `♫` button. Clicking the art or title opens detail.
 
 **Counts:** the toolbar reports the current number of loaded songs and, while loading, the number still in flight.
+
+**Search:** the toolbar text box (`state.song_search`) filters both views live, on every keystroke, no Enter. `GridView::visible_indices` keeps the real song indices whose title (file name fallback), artist, album, year, or genre contains the trimmed query, case-insensitively. Empty query = full library; the `#` column keeps showing real library indices.
 
 **Clear All:** empties `songs` immediately. Texture caches and the current view are not reset; if the detail view was open it will reset to the grid on the next frame because the index is now out of range.
 
@@ -120,7 +123,7 @@ AI → LLM Settings.
 - Model presets fill `model_name`; "Custom" leaves the free-text field.
 - Save is gated on model + (local or key), forces `enabled = true`, writes `settings.json`, and closes.
 - Test connection is gated the same way. It temporarily enables the settings for the request, spawns `test_connection`, and sends `AppMessage::LlmTestResult`.
-- Result handling reuses `error_message`: success shows "Connection test successful!" in the Error window; failure shows "Connection test failed: …". Because the settings popup is open, its inline error filter also displays failures containing `connection`/`LLM`.
+- Result handling reuses `error_message` **only while the popup is open**: success shows "Connection test successful!" (green) and failure "Connection test failed: …" (red) inline in the popup. These messages never open the Error window. If the popup was closed mid-test, the result is dropped.
 
 `test_connection` performs a real chat completion ("Test connection. Reply with 'OK'.") and discards the answer. It costs tokens on hosted providers.
 
@@ -155,8 +158,9 @@ There is no onboarding, no CLI argument handling, and no migration of older sett
 
 | Feature | UI | State | Service |
 |---|---|---|---|
-| Add songs | menu, toolbar | `add_songs`, `song_loaded` | `MetadataService::load_song` |
+| Add songs | File menu (Add Songs / Add Folder) | `add_songs`/`add_folder`, `song_loaded` | `MetadataService::load_song` |
 | List/grid | `GridView` | `library_view_mode` | — |
+| Search library | toolbar `TextEdit` | `song_search` | — (`GridView::visible_indices`) |
 | Edit fields | `DetailView::show_metadata_fields` | `update_metadata_field` | — |
 | Save | Save button | `save_current_song` | `MetadataService::write_metadata` |
 | Clear | Clear button | `clear_current_metadata` | — |

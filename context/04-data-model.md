@@ -162,7 +162,7 @@ Important: `AppMessage` uses `ui::state::Result<T> = std::result::Result<T, Stri
 
 | Group | Fields |
 |---|---|
-| Library | `songs: Vec<Song>`, `selected_index: Option<usize>`, `pending_changes: bool` |
+| Library | `songs: Vec<Song>`, `selected_index: Option<usize>`, `pending_changes: bool`, `song_search: String` (live library filter) |
 | Navigation | `current_view: View`, `library_view_mode: LibraryViewMode` |
 | Settings | `settings: AppSettings`, `settings_service: SettingsService` |
 | Async | `llm_service: LlmService`, `message_tx: Sender<AppMessage>`, `loading_count: usize`, `is_fetching: bool`, `fetch_index: Option<usize>` |

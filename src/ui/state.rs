@@ -28,6 +28,10 @@ pub enum AppMessage {
     LlmTestResult(Result<()>),
 }
 
+/// File extensions the app treats as audio. Shared by the Add Songs file
+/// dialog and the Add Folder scan so both stay in sync.
+pub const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "ogg", "m4a", "wav", "aiff", "ape"];
+
 pub type Result<T> = std::result::Result<T, String>;
 
 /// Bounded texture cache.
@@ -111,6 +115,8 @@ pub struct AppState {
     pub settings_service: SettingsService,
     pub pending_changes: bool,
     pub library_view_mode: LibraryViewMode,
+    /// Live filter for the library views; empty means show every song.
+    pub song_search: String,
     /// Textures for the small library tiles.
     pub album_art_textures: TextureCache,
     /// Textures for the larger detail-view preview, capped separately so
@@ -138,6 +144,7 @@ impl AppState {
             settings_service,
             pending_changes: false,
             library_view_mode: LibraryViewMode::List,
+            song_search: String::new(),
             album_art_textures: TextureCache::new(512),
             detail_album_art_textures: TextureCache::new(8),
             loading_count: 0,
@@ -174,6 +181,47 @@ impl AppState {
         if let Err(error) = spawned {
             self.loading_count = self.loading_count.saturating_sub(count);
             self.error_message = Some(format!("Could not start loading songs: {error}"));
+        }
+    }
+
+    /// Collect every audio file under `folder`, recursively, and add them.
+    ///
+    /// The directory walk runs on the UI thread: it only reads directory
+    /// entries, which is cheap compared to the tag parsing `add_songs`
+    /// already moves off-thread. Unreadable subdirectories are skipped.
+    pub fn add_folder(&mut self, folder: PathBuf) {
+        let mut paths = Vec::new();
+        Self::collect_audio_files(&folder, &mut paths);
+        if paths.is_empty() {
+            self.error_message = Some(format!("No audio files found in {}", folder.display()));
+            return;
+        }
+        paths.sort();
+        self.add_songs(paths);
+    }
+
+    fn collect_audio_files(dir: &std::path::Path, paths: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            // `file_type` does not follow symlinks, so a symlink cycle inside
+            // the folder cannot loop this recursion on the UI thread.
+            match entry.file_type() {
+                Ok(file_type) if file_type.is_dir() => Self::collect_audio_files(&path, paths),
+                Ok(_)
+                    if path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .is_some_and(|ext| {
+                            AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+                        }) =>
+                {
+                    paths.push(path);
+                }
+                _ => {}
+            }
         }
     }
 

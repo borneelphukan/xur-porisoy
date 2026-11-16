@@ -67,7 +67,7 @@ The root `README.md` is user-facing and stale in several places. `context/` is a
 - **Quit does not prompt.** Unsaved edits are discarded; only settings are saved in `on_exit`.
 - **Theme changes save immediately** (menu selection), while LLM settings save only on the dialog's Save button. Cancel discards the draft.
 - **Test connection mutates the draft's `enabled` temporarily.** It restores the previous value, but the cloned settings sent to the task have `enabled = true`.
-- **Inline settings errors are string-filtered.** Only messages containing `Connection`, `connection`, or `LLM` appear inside the AI Settings popup; everything else appears in the Error window behind/above it.
+- **Inline settings messages are string-filtered.** `settings_view::is_inline_settings_message` (`Connection`/`connection`/`LLM`) is the single gate: those messages appear in the AI Settings popup and **never** in the Error window; the popup clears them on close and `handle_message` drops test results when it is closed. Everything else appears in the Error window.
 - **Error window is single-slot.** A new error replaces the old one; there is no history or queue.
 - **No keyboard input handling.** Not even Escape closes dialogs; use the window close button or the dialog's buttons.
 

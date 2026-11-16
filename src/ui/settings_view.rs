@@ -5,6 +5,13 @@ use eframe::egui;
 
 pub struct SettingsView;
 
+/// Messages the AI Settings popup shows inline instead of in the Error
+/// window. Single source of truth: `XurPorisoyApp::show_error_popup` skips
+/// anything matching this, and the popup clears it on close.
+pub fn is_inline_settings_message(message: &str) -> bool {
+    message.contains("Connection") || message.contains("connection") || message.contains("LLM")
+}
+
 impl SettingsView {
     pub fn show_popup(
         ctx: &egui::Context,
@@ -99,13 +106,15 @@ impl SettingsView {
                     }
                 });
 
-                if let Some(error) = &state.error_message {
-                    if error.contains("Connection")
-                        || error.contains("connection")
-                        || error.contains("LLM")
-                    {
+                if let Some(message) = &state.error_message {
+                    if is_inline_settings_message(message) {
                         ui.add_space(4.0);
-                        ui.colored_label(egui::Color32::LIGHT_RED, error);
+                        let color = if message.contains("successful") {
+                            egui::Color32::LIGHT_GREEN
+                        } else {
+                            egui::Color32::LIGHT_RED
+                        };
+                        ui.colored_label(color, message);
                     }
                 }
 
@@ -161,6 +170,17 @@ impl SettingsView {
             });
         if close {
             *open = false;
+        }
+        // Covers Cancel, Save, and the title-bar close button: inline-only
+        // messages have nowhere else to be shown, so don't let a stale one
+        // survive into the next time the popup opens.
+        if !*open
+            && state
+                .error_message
+                .as_deref()
+                .is_some_and(is_inline_settings_message)
+        {
+            state.error_message = None;
         }
     }
 }

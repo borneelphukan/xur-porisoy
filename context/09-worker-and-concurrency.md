@@ -6,8 +6,8 @@ The app uses three kinds of execution: the UI thread, a short-lived `std::thread
 
 | Execution context | Created by | Lifetime | Runs |
 |---|---|---|---|
-| Main / UI thread | `eframe::run_native` | Process | egui, all state mutation, texture creation, tag writes, settings I/O |
-| `library-loader` | `AppState::add_songs` | Until the batch ends or the receiver drops | `MetadataService::load_song` per path |
+| Main / UI thread | `eframe::run_native` | Process | egui, all state mutation, texture creation, tag writes, settings I/O, Add Folder directory walk |
+| `library-loader` | `AppState::add_songs` (called directly or via `add_folder`) | Until the batch ends or the receiver drops | `MetadataService::load_song` per path |
 | Tokio worker 1–2 | `#[tokio::main(worker_threads = 2)]` | Process | LLM fetch, iTunes fetch, connection test |
 | `reqwest` runtime tasks | `reqwest` | Per request | DNS, TLS, I/O |
 
@@ -85,7 +85,7 @@ handle.spawn(async move {
 
 ### Test connection
 
-Spawned from `SettingsView` with a cloned settings value, sends `AppMessage::LlmTestResult(Result<(), String>)`. It shares the same runtime and has no cancellation.
+Spawned from `SettingsView` with a cloned settings value, sends `AppMessage::LlmTestResult(Result<(), String>)`. It shares the same runtime and has no cancellation. The result only reaches `error_message` (and thus the popup's inline display) if the popup is still open when it arrives.
 
 ## 5. Message channel
 

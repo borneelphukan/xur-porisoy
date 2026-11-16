@@ -73,6 +73,8 @@ This fallback covers formats where the primary tag is Vorbis Comments but a comp
 
 ## 3. Loading a batch
 
+`AppState::add_folder(path)` recursively collects files whose extension is in `AUDIO_EXTENSIONS` (unreadable subdirectories are skipped, results sorted), shows an error banner when none are found, then delegates to `add_songs`. The directory walk runs on the UI thread; only tag parsing is off-thread.
+
 `AppState::add_songs(paths)`:
 
 1. Ignores an empty list.

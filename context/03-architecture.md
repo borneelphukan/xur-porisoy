@@ -61,7 +61,7 @@ Order per frame:
    - `SongLoaded` → decrement `loading_count`, push or set `error_message`;
    - `MetadataFetched` → clear fetching flags, merge results, mark changed;
    - `LlmTestResult` → reuse `error_message` as a status banner ("Connection test successful!") or error.
-3. **Menu bar** (`TopBottomPanel::top("menu_bar")`): File, AI, View → Theme, Help, plus a right-aligned "📚 Library" label when in the grid.
+3. **Menu bar** (`TopBottomPanel::top("menu_bar")`): File, AI, View → Theme, Help.
 4. **Main content** by `View`:
    - `View::Grid` → `GridView::show(ctx, &mut state)`;
    - `View::Detail(i)` → `DetailView::show(ctx, &mut state)`; if the index is stale it resets to `View::Grid`.
@@ -93,8 +93,8 @@ Because messages are handled before drawing, a result sent during frame *N* is n
 ## 5. Message flow
 
 ```text
-Add Songs
-  └─ AppState::add_songs(paths)
+Add Songs / Add Folder
+  └─ AppState::add_songs(paths)   (Add Folder walks the directory first)
        ├─ loading_count += n; pending_changes = true
        └─ spawn "library-loader"
             └─ for path: MetadataService::load_song → AppMessage::SongLoaded
