@@ -44,9 +44,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Resolve and download the committed lockfile first, so source edits
-# don't invalidate the dependency layer.
+# don't invalidate the dependency layer. Cargo validates the package's
+# targets even for `cargo fetch`, and this crate has no [lib]/[[bin]] in
+# Cargo.toml — its single binary comes from the conventional src/main.rs.
+# So a throwaway main.rs must exist until the real sources are copied.
 COPY Cargo.toml Cargo.lock ./
-RUN cargo fetch --locked
+RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs \
+    && cargo fetch --locked \
+    && rm -rf src
 
 COPY build.rs ./
 COPY assets ./assets
