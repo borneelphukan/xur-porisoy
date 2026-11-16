@@ -1,5 +1,29 @@
 # 03 — Architecture
 
+## 0. The pattern (name)
+
+The project is a **monolithic, layered native desktop application** whose UI runs an
+**immediate-mode Model–View–Update (MVU / The Elm Architecture) loop**, with background
+workers feeding the single UI thread through **message passing** (producer–consumer,
+actor-style). It is the conventional `eframe`/`egui` shape rather than a bespoke design.
+The named ideas to keep in mind:
+
+| Aspect | Pattern | Detail |
+|---|---|---|
+| Whole program | **Monolith** — one process, no plugins/IPC/services | entire `src/` |
+| Code organisation | **Layered / separation of concerns** — `ui/` (presentation) → `services/` (domain + I/O) → `models/` (data + rules) | §4, [02-project-structure.md](02-project-structure.md) |
+| UI toolkit | **Immediate-mode GUI** — stateless widgets rebuilt every frame | §3, [06-ui-and-interactions.md](06-ui-and-interactions.md) |
+| App state & flow | **Model–View–Update (Elm Architecture)** — one central `AppState` (Model), an `AppMessage` enum (Messages), `update()` that drains the channel then renders (Update + View) | §3, §5 |
+| Concurrency | **Producer–consumer / message passing** — worker threads + Tokio produce, the UI thread is the sole consumer and only mutator of state | §1, [09-worker-and-concurrency.md](09-worker-and-concurrency.md) |
+
+In one line: *a single-process layered desktop monolith with an egui immediate-mode UI
+driven by a central-state Elm/MVU loop and `mpsc` message passing to background workers.*
+
+**Deliberate hybrid to note:** egui is immediate-mode (no retained widget tree), but
+`AppState` itself *is* retained across frames, so this is MVU with a mutable, persistent
+Model — not the pure immutable Model of canonical Elm. Saves also run synchronously on
+the UI thread rather than in an Elm-style `Cmd`.
+
 ## 1. Process and thread model
 
 ```text

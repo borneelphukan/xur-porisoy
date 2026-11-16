@@ -14,7 +14,7 @@ Every packaging script packages an **already-built** binary. None of them invoke
 | Arch | `x86_64`, `aarch64` | `packaging/arch/build-arch-pkg.sh` + `PKGBUILD` | `xur-porisoy-<version>-1-<arch>.pkg.tar.*` |
 | Windows installer | `x64`, `x86`, `arm64` | `installer/xur-porisoy.iss` | `XurPorisoy-Setup-<version>-<arch>.exe` |
 | Windows portable | `x64`, `x86`, `arm64` | built inline in the workflow | `XurPorisoy-<version>-windows-<arch>.zip` |
-| macOS | universal (`x86_64` + `arm64`) | `packaging/macos/build-dmg.sh` | `XurPorisoy-<version>-macos-universal.dmg` |
+| macOS | universal (`x86_64` + `arm64`) | `packaging/macos/build-pkg.sh` | `XurPorisoy-<version>-macos-universal.pkg` |
 | apt repository | `amd64` (published) | `packaging/apt/build-repo.py` | static tree under `pages/` |
 | Docker image | runner arch (`docker buildx` can cross-build on demand) | `Dockerfile` + `docker/entrypoint.sh` + `docker-compose.yml` | OCI image; **not** a release artifact or registry push |
 
@@ -168,11 +168,23 @@ The workflow also builds a portable zip containing the exe and `README.md`. It v
 
 ## 10. macOS
 
-- Expects a universal binary (built in CI with two `cargo build` runs + `lipo`).
-- Creates `XurPorisoy.app/Contents/{MacOS,Resources}`.
-- Builds `.icns` with `sips` (cropped to 301×301 first) and `iconutil`, with 16/32/128/256/512 and `@2x`.
+`packaging/macos/build-pkg.sh` builds a real Apple installer (`.pkg`). This target previously shipped a `.dmg`, but a disk image only mounts the app and relies on a manual drag into Applications, which reads as "portable"; the `.pkg` installs into `/Applications` for the whole system with an admin-authorised Install macOS workflow.
+
+- Expects a universal binary (built in CI with two `cargo build` runs + `lipo`), or a prebuilt bundle via `APP=`.
+- Assembles `XurPorisoy.app/Contents/{MacOS,Resources}`; builds `.icns` with `sips` (cropped to 301×301 first) and `iconutil`, at 16/32/128/256/512 and `@2x`.
 - `Info.plist`: bundle id `io.github.borneelphukan.XurPorisoy`, version, `LSMinimumSystemVersion 11.0`, high-resolution capable, category `public.app-category.music`.
-- `hdiutil create -format UDZO` produces the DMG. The app is **not code-signed or notarized**; Gatekeeper will warn.
+- `pkgbuild` + `productbuild` wrap the app in a distribution `.pkg` installed to `INSTALL_LOCATION` (default `/Applications`), with a `postinstall` that runs `lsregister`.
+- Env: `VERSION`, `BINARY`/`APP`, `APP_NAME`, `BUNDLE_ID`, `EXECUTABLE`, `INSTALL_LOCATION`, `OUT_DIR`, optional `SIGN_IDENTITY` (`Developer ID Installer: ...`). Output: `<APP_NAME>-<version>-macos-universal.pkg`.
+- Unsigned unless `SIGN_IDENTITY` is set; the app is also not notarized, so Gatekeeper warns on a freshly downloaded copy. The `.pkg` **is** asserted by the release job's expected-pattern list.
+
+```bash
+VERSION=0.0.1 packaging/macos/build-pkg.sh                     # from universal binary
+VERSION=0.0.1 APP="/Applications/MP3 Tagger.app" APP_NAME="MP3 Tagger" \
+  BUNDLE_ID=io.github.borneelphukan.mp3Tagger EXECUTABLE=mp3-tagger \
+  packaging/macos/build-pkg.sh                                 # repackage an existing app
+```
+
+
 
 ## 11. Version bumping
 
@@ -221,7 +233,7 @@ VERSION=<v> ARCH=x86_64 packaging/linux/build-appimage.sh
 VERSION=<v> RPM_ARCH=x86_64 packaging/rpm/build-rpm.sh
 VERSION=<v> ARCH=x86_64 packaging/flatpak/build-flatpak.sh
 VERSION=<v> ARCH=x86_64 packaging/arch/build-arch-pkg.sh
-VERSION=<v> packaging/macos/build-dmg.sh            # macOS only, universal binary
+VERSION=<v> packaging/macos/build-pkg.sh           # macOS only, universal binary
 python3 packaging/apt/build-repo.py --debs dist --out pages \
   --suite stable --component main --origin xur-porisoy --label "XurPorisoy"
 ```

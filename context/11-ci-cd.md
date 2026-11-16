@@ -82,7 +82,7 @@ Concurrency `release-<ref>`; cancels in progress only for PRs. Permissions: `con
 | `linux-packages` | `metadata` | Not schedule | Matrix x86_64 (`ubuntu-24.04`) / ARM64 (`ubuntu-24.04-arm`): tarball, AppImage, RPM, Flatpak, Arch. |
 | `linux-riscv64` | `metadata` | Not schedule | Cross-compile with `cross`, tarball + `.deb` + RPM. |
 | `windows` | `metadata` | Not schedule | Matrix x64/x86/ARM64: release binary, Inno Setup installer, portable zip. |
-| `macos-universal` | `metadata` | Not schedule | Build both targets, `lipo`, DMG. |
+| `macos-universal` | `metadata` | Not schedule | Build both targets, `lipo`, `.pkg` installer. |
 | `ci` | — | Not schedule | Duplicate quality gate: fmt, clippy with the same allows, tests. |
 | `publish-pages` | `ci`, `debian-x86_64` | Not PR, Debian success, `ci` success or skipped | Build and deploy the apt repository. |
 | `release` | `ci`, `debian-x86_64`, `linux-packages`, `linux-riscv64`, `windows`, `macos-universal` | Not schedule | Verify 22 deliverable patterns, write `SHA256SUMS`, upload bundle or attach to release. |
@@ -143,7 +143,7 @@ Consequences:
    XurPorisoy-*-windows-x64.zip
    XurPorisoy-*-windows-x86.zip
    XurPorisoy-*-windows-arm64.zip
-   XurPorisoy-*-macos-universal.dmg
+   XurPorisoy-*-macos-universal.pkg
    ```
 
    Any extra file is still hashed and published; the list only asserts presence.

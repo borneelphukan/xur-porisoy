@@ -25,7 +25,7 @@ xur-porisoy/
 │   ├── rpm/              # RPM spec builder
 │   ├── flatpak/          # Flatpak bundle builder
 │   ├── arch/             # PKGBUILD + Docker wrapper
-│   └── macos/            # universal .app/.dmg builder
+│   └── macos/            # universal .app/.pkg builder
 ├── src/
 │   ├── main.rs
 │   ├── models/           # data types and errors

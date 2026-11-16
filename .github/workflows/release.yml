@@ -5,7 +5,7 @@ name: Release
 #            AppImage (x86_64, ARM64), RPM (x86_64, ARM64, RISC-V 64),
 #            Tarball (x86_64, ARM64, RISC-V 64), Arch (x86_64, ARM64)
 #   Windows: Installer/Portable (64-bit, 32-bit, ARM64)
-#   macOS  : Disk image (Universal)
+#   macOS  : Installer package (Universal)
 # plus the apt repository on GitHub Pages.
 
 on:
@@ -490,7 +490,7 @@ jobs:
           path: ${{ steps.package.outputs.portable }}
 
   macos-universal:
-    name: Disk image (Universal)
+    name: Installer package (Universal)
     needs: metadata
     # Run for every push, pull request and manual dispatch; only the weekly
     # schedule skips the expensive packaging matrix.
@@ -524,19 +524,19 @@ jobs:
             target/x86_64-apple-darwin/release/xur-porisoy
           lipo -info target/release/xur-porisoy
 
-      - name: Build disk image
+      - name: Build installer package
         env:
           VERSION: ${{ needs.metadata.outputs.version }}
           OUT_DIR: dist/macos-universal
-        run: packaging/macos/build-dmg.sh
+        run: packaging/macos/build-pkg.sh
 
-      - name: Upload disk image
+      - name: Upload installer package
         uses: actions/upload-artifact@v4
         with:
-          name: Disk image (Universal)
+          name: Installer package (Universal)
           if-no-files-found: error
           retention-days: 30
-          path: dist/macos-universal/*.dmg
+          path: dist/macos-universal/*.pkg
 
   publish-pages:
     name: Publish apt repository
@@ -768,7 +768,7 @@ jobs:
             'XurPorisoy-*-windows-x86.zip'
             'XurPorisoy-*-windows-arm64.zip'
             # macOS
-            'XurPorisoy-*-macos-universal.dmg'
+            'XurPorisoy-*-macos-universal.pkg'
           )
           missing=0
           for pattern in "${expected[@]}"; do

@@ -95,7 +95,7 @@ At **runtime** the X11/Wayland/GL/DBus libraries are `dlopen`ed, not linked, so 
 
 ### macOS
 
-- Xcode command-line tools; `sips`, `iconutil`, `hdiutil` for the DMG.
+- Xcode command-line tools; `sips`, `iconutil`, `pkgbuild`, `productbuild` for the installer package.
 - Cross-build both `aarch64-apple-darwin` and `x86_64-apple-darwin`, then `lipo`.
 
 ## 5. Commands
@@ -213,7 +213,7 @@ All scripts expect an already-built binary and never compile Rust:
 | RPM | `VERSION=x RPM_ARCH=y packaging/rpm/build-rpm.sh` |
 | Flatpak | `VERSION=x ARCH=y packaging/flatpak/build-flatpak.sh` |
 | Arch | `VERSION=x ARCH=y packaging/arch/build-arch-pkg.sh` |
-| macOS DMG | `VERSION=x packaging/macos/build-dmg.sh` |
+| macOS installer | `VERSION=x packaging/macos/build-pkg.sh` |
 | Windows installer | `ISCC.exe /DMyAppVersion=... /DMyVersionInfo=... /DMyArch=... /DMySourceExe=... /DMyOutputBaseFilename=... installer/xur-porisoy.iss` |
 
 See [12-packaging-and-release.md](12-packaging-and-release.md) for the full matrix and naming.

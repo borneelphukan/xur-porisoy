@@ -55,7 +55,7 @@ This directory is the **authoritative, current context** for anyone (human or AI
 7. **Cover art comes from the public iTunes Search API.** The 100×100 URL is rewritten to 600×600, the MIME type comes from `Content-Type`, and only the image header is validated before the bounded decoder runs.
 8. **Saving is synchronous on the UI thread.** `save_current_song` calls `MetadataService::write_metadata` inline, so writing a large tag/artwork set blocks the frame.
 9. **Releases are tag-driven.** The release workflow reads `0.0.1`-style versions from the first `version =` line in `Cargo.toml`. A `v*` tag attaches the verified bundle to a GitHub Release; ordinary runs publish the same bundle as a workflow artifact and republish the apt repository on Pages.
-10. **Packaging is multi-architecture and script-driven.** The matrix covers Debian, RPM, tarball, AppImage, Flatpak, Arch, Windows, and a macOS universal DMG. All scripts read a prebuilt binary; none compile inside the packaging step.
+10. **Packaging is multi-architecture and script-driven.** The matrix covers Debian, RPM, tarball, AppImage, Flatpak, Arch, Windows, and a macOS universal `.pkg` installer. All scripts read a prebuilt binary; none compile inside the packaging step.
 
 ---
 

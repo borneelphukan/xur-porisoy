@@ -9,8 +9,9 @@
 - **License:** MIT (declared in `Cargo.toml`, `installer/`, and the Debian copyright template)
 - **Current version:** `0.0.1`
 - **Primary platforms:** Linux (Debian/Ubuntu via apt repository) and Windows
-- **Other platform:** macOS universal `.dmg`
+- **Other platform:** macOS universal `.pkg` installer
 - **Distribution:** GitHub Releases plus a signed (or explicitly trusted) apt repository on GitHub Pages
+- **Architecture:** a monolithic, layered desktop app with an immediate-mode `egui` UI driven by a central-state Model–View–Update (Elm-style) loop and `mpsc` message passing to background workers — see [03-architecture.md](03-architecture.md)
 
 The name is a transliteration; the crate, binary, package, and config directory are all `xur-porisoy`.
 
